@@ -12,7 +12,8 @@
 # cncpo - For CNCPO Lists (anti-pedophilia)
 # consob - For CONSOB Lists (Trading) - Not Mandatory and BROKEN right now since they have implemented anti-bot protection.
 # pscaiip - For Privacy Shield FQDN or IPv4 created by exteral tool provided by AIIP (Associazione Italiana Internet Provider)
-LISTS="manuale aams tabacchi agcom consob cncpo pscaiip"
+#LISTS="manuale aams tabacchi agcom consob cncpo pscaiip"
+LISTS="manuale aams tabacchi agcom consob"
 
 # Lists to be downloaded/updated
 # You might use all lists here. To be used to keep old
@@ -26,10 +27,10 @@ UPDATE_LISTS=$LISTS
 # Set true to enable alerting 
 ALERT_ENABLE=true
 # insert NOC email to enable alerting
-NOC_EMAIL=''
+NOC_EMAIL='noc@bebyte.it'
 #NOC_EMAIL=''
 # sender address
-FROM_EMAIL='cncpo@connesi.it'
+FROM_EMAIL='noc@bebyte.it'
 
 ##################### CNCPO ########################
 # CNCPO PEC IMAP SERVER

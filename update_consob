@@ -6,7 +6,7 @@ test $LOGGING_ENABLE == true && echo "$(date '+%d/%m/%y %H:%M:%S') - Downloading
 
 # TODO make your own script
 if [ -e $CONSOB_DOWNLOAD_HELPER ] ; then 
-	python $CONSOB_DOWNLOAD_HELPER -o lists/consob.new.tmp
+	python3 $CONSOB_DOWNLOAD_HELPER -o lists/consob.new.tmp
 else 
 	test $LOGGING_ENABLE == true && echo "$(date '+%d/%m/%y %H:%M:%S') - CONSOB Error: Helper $CONSOB_DOWNLOAD_HELPER not found. See README" >> $LOGFILE
 	exit

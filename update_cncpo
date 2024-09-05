@@ -19,7 +19,7 @@ done
 
 # Running the Fetcher
 
-python $CNCPO_DOWNLOAD_HELPER &>> $LOGFILE
+python3 $CNCPO_DOWNLOAD_HELPER &>> $LOGFILE
 if [ $? != 0 ] ; then
 	SUBJECT="Error while fetching CNCPO lists"
 	TXT='Unable to check PEC Mailbox'
@@ -81,7 +81,7 @@ if [ -e $CNCPO_DOWNLOAD_DIR/$CNCPO_FILE_NAME_CRYPT ] ; then
 	
 	# answer
 	if [ $CNCPO_REPLY_ENABLED == true ] ; then 
-		echo "$CNCPO_REPLY_TEMPLATE" | sed "s/_LISTAID_/$LISTAID/g" | sed "s/_LISTADATE_/$LISTADATE/g" | sed "s/_DATE_/$(date)/g" | python $CNCPO_EMAIL_SENDER
+		echo "$CNCPO_REPLY_TEMPLATE" | sed "s/_LISTAID_/$LISTAID/g" | sed "s/_LISTADATE_/$LISTADATE/g" | sed "s/_DATE_/$(date)/g" | python3 $CNCPO_EMAIL_SENDER
 		
 		if [ $? != 0 ] ; then
 			SUBJECT="Error while sending reply message to CNCPO"
