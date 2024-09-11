@@ -15,7 +15,7 @@ CURL_RETURN=$?
 
 if [ $CURL_RETURN != 0 ] ; then
         SUBJECT="Error while fetching AGCOM lists"
-        TXT="download_agcom.py on $(hostname --fqdn) have returned $CURL_RETURN when trying to parse the CMS"
+        TXT="$AGCOM_DOWNLOAD_HELPER on $(hostname --fqdn) have returned $CURL_RETURN when trying to parse the CMS"
         if [ $ALERT_ENABLE == true ] && [ "x$NOC_EMAIL" != 'x' ] ; then
                echo -e "Subject: $SUBJECT\nFrom:$FROM_EMAIL\n$TXT" | sendmail $NOC_EMAIL
 	fi
