@@ -1,14 +1,6 @@
 #!/bin/sh -e
 
-# path of the file on each target server
-CONFFILE='/etc/unbound/unbound.conf.d/20-censura-new.conf'
-# list of target servers
-SERVERS='root@2a01:4f8:c012:ecc2::1'
-# do not waste too much time trying to connect to unresponsive remote servers
-RSYNC_OPTIONS='--timeout=30 -rt'
-
-# the local file
-CONF='lists/unbound.conf'
+source config.sh
 
 # override the list of target servers
 if [ "$1" ]; then

@@ -32,8 +32,8 @@ for list in $LISTS; do
   cncpo) ipredir='212.25.179.125' ;;
   aams)  ipredir='217.175.53.72' ;;
   tabacchi) ipredir='217.175.53.228' ;;
-  #*)     ipredir='127.0.0.1' ;;
-  *)     ipredir='' ;;
+  *)     ipredir='127.0.0.1' ;;
+  #*)     ipredir='' ;;
   esac
 
   printf "\t# domains from the $list list\n"

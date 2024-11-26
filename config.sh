@@ -13,7 +13,8 @@
 # consob - For CONSOB Lists (Trading) - Not Mandatory and BROKEN right now since they have implemented anti-bot protection.
 # pscaiip - For Privacy Shield FQDN or IPv4 created by exteral tool provided by AIIP (Associazione Italiana Internet Provider)
 #LISTS="manuale aams tabacchi agcom consob cncpo pscaiip"
-LISTS="manuale aams tabacchi agcom consob"
+#LISTS="manuale aams tabacchi agcom consob"
+LISTS="manuale aams tabacchi consob" # agcom is broken
 
 # Lists to be downloaded/updated
 # You might use all lists here. To be used to keep old
@@ -168,18 +169,17 @@ CURL_OPTS_aams=''
 
 
 ##################### DNS SECTION ########################
-# path of the file on each remote target DNS server
-
-CONFFILE='/etc/bind/censura/named.conf'
+# path of the file on each target server
+CONFFILE='/etc/unbound/unbound.conf.d/20-censura-new.conf'
 
 # list of target DNS servers
-SERVERS='root@ns1.example.net root@ns3.example.net root@ns5.example.net root@ns6.example.net'
+SERVERS='root@157.90.253.34'
 
 # do not waste too much time trying to connect to unresponsive remote servers
 RSYNC_OPTIONS='--timeout=30 -rt'
 
 # the local file
-CONF='lists/named.conf'
+CONF='lists/unbound.conf'
 
 # local full ip list
 CONF_IP='lists/ip-fullist'
