@@ -1,0 +1,3 @@
+DEPLOY_USERNAME=root
+DEPLOY_HOST=bb-recursive-dns01.bebyte.it
+DEPLOY_PATH=/root/censura

@@ -1,9 +1,9 @@
 #!/bin/sh -e
 
 # path of the file on each target server
-CONFFILE='/etc/unbound/censura-new.conf'
+CONFFILE='/etc/unbound/unbound.conf.d/20-censura-new.conf'
 # list of target servers
-SERVERS='root@ns1.example.net root@ns3.example.net root@ns5.example.net root@ns6.example.net'
+SERVERS='root@2a01:4f8:c012:ecc2::1'
 # do not waste too much time trying to connect to unresponsive remote servers
 RSYNC_OPTIONS='--timeout=30 -rt'
 
@@ -26,7 +26,7 @@ copy_config() {
     if rsync $RSYNC_OPTIONS $file $server:$CONFFILE; then
       dprintf "Succesfully copied to $server.\n"
       # this script dynamically updates the running configuration
-      if ssh $server unbound-update-censorship; then
+      if ssh $server /root/censura/unbound-update-censorship; then
         dprintf "Configuration successfully reloaded on $server.\n\n"
       else
         printf "ERROR: the configuration has not been correctly reloaded on $server!\n\n" >&2
@@ -73,4 +73,3 @@ else
 fi
 
 exit 0
-
