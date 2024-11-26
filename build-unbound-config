@@ -1,11 +1,11 @@
-#!/bin/sh -e
+#!/bin/bash
+
+source config.sh
 
 if [ -z "$1" ]; then
   echo "Usage: $0 \"LISTS\"" >&2
 fi
 LISTS="$1"
-
-CONF='lists/unbound.conf'
 
 ##############################################################################
 list2unboundconf() {
