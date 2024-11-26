@@ -5,5 +5,4 @@ cd "${DIRECTORY}"
 
 ./censorship-get
 ./censorship-summary
-#./censorship-apply
-
+./censorship-apply

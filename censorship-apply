@@ -6,8 +6,8 @@
 source config.sh
 
 test $LOGGING_ENABLE == true && echo "$(date '+%d/%m/%y %H:%M:%S') - Censorship APPLY started." >> $LOGFILE  
-./upload-bind-config || true
-#./upload-unbound-config || true
+#./upload-bind-config || true
+./upload-unbound-config || true
 
 #copying all the lists
 TEMPFILE=$CONF_IP-tmp
