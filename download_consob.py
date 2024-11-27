@@ -45,42 +45,44 @@ def main():
     totpages=0
     urls = []
     while(curpage<=totpages or totpages==0):
-        url = "https://www.consob.it/web/area-pubblica/oscuramenti?p_p_id=com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_m9PTOY4SM1GU&_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_m9PTOY4SM1GU_cur={}".format(curpage)
-        if(curpage > 1): waitRand()
-        s = requests.Session()
-        s.headers.update({'Referer': referer, 'User-Agent': user_agent, 'Accept-Language': accept_language, 'Accept': accept, 'Upgrade-Insecure-Requests': '1' })
-        page = s.get(url, cookies=cookies, verify=False)
-        cookies = page.cookies
-        referer = url
-        if((str(page.content)).find("you are a bot")!=-1):
-            print("WAF detected BOT, sorry!")
-            return(False)
-        soup = BeautifulSoup(page.content, "html.parser")
-        # Recupera il numero di pagine totali se non recuperato ancora
-        if(totpages==0):
-            for span in soup.findAll('span', attrs={'class':'lfr-icon-menu-text'}):
-                pag=span.get_text()
-                totpages=int(re.search(r"[0-9]{1,2}$",pag).group(0))
-                # Esce se non ha trovato il numero di pagine
-                if(totpages==0):
-                    print("Non posso determinare il numero di pagine della lista")
-                    return(False)
-        # Ricerca il contenuto
-        for div in soup.find_all('div', attrs={'class':'divContent'}):
-            for comunicato in div.find_all('h4'):
-                block = comunicato.find_next('div')
-                if(not block):
-                   continue
-                content = str(block.get_text().encode("ascii", "ignore"))
-                extractor = URLExtract()
-                for url in extractor.find_urls(content):
-                    ext = extract(url)
-                    if ext.domain == "consob" and ext.suffix == "it": continue
-                    if ext.domain == "europa" and ext.suffix == "eu": continue
-                    url = (ext.subdomain+"."+ext.domain+"."+ext.suffix) if ext.subdomain != "" else (ext.domain+"."+ext.suffix)
-                    urls.append(url)
-        curpage = curpage + 1
-
+        try:
+            url = "https://www.consob.it/web/area-pubblica/oscuramenti?p_p_id=com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_m9PTOY4SM1GU&_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_m9PTOY4SM1GU_cur={}".format(curpage)
+            if(curpage > 1): waitRand()
+            s = requests.Session()
+            s.headers.update({'Referer': referer, 'User-Agent': user_agent, 'Accept-Language': accept_language, 'Accept': accept, 'Upgrade-Insecure-Requests': '1' })
+            page = s.get(url, cookies=cookies, verify=False)
+            cookies = page.cookies
+            referer = url
+            if((str(page.content)).find("you are a bot")!=-1):
+                print("WAF detected BOT, sorry!")
+                return(False)
+            soup = BeautifulSoup(page.content, "html.parser")
+            # Recupera il numero di pagine totali se non recuperato ancora
+            if(totpages==0):
+                for span in soup.findAll('span', attrs={'class':'lfr-icon-menu-text'}):
+                    pag=span.get_text()
+                    totpages=int(re.search(r"[0-9]{1,2}$",pag).group(0))
+                    # Esce se non ha trovato il numero di pagine
+                    if(totpages==0):
+                        print("Non posso determinare il numero di pagine della lista")
+                        return(False)
+            # Ricerca il contenuto
+            for div in soup.find_all('div', attrs={'class':'divContent'}):
+                for comunicato in div.find_all('h4'):
+                    block = comunicato.find_next('div')
+                    if(not block):
+                       continue
+                    content = str(block.get_text().encode("ascii", "ignore"))
+                    extractor = URLExtract()
+                    for url in extractor.find_urls(content):
+                        ext = extract(url)
+                        if ext.domain == "consob" and ext.suffix == "it": continue
+                        if ext.domain == "europa" and ext.suffix == "eu": continue
+                        url = (ext.subdomain+"."+ext.domain+"."+ext.suffix) if ext.subdomain != "" else (ext.domain+"."+ext.suffix)
+                        urls.append(url)
+            curpage = curpage + 1
+        except Exception:
+            continue
     # Scrive la lista
     with open(options.out_file,'wb') as f:
         f.write("\n".join(urls).encode())
