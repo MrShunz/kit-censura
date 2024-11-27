@@ -1,9 +1,7 @@
-#!/bin/sh -e
+#!/bin/bash -e
 
-cd /etc/unbound/
+cd /etc/unbound/unbound.conf.d/
 
 unbound-checkconf
 
-unbound-apply-config \
-  --old-file=censura.conf --new-file=censura-new.conf
-
+unbound-apply-config  --old-file=20-censura.conf --new-file=20-censura-new.conf

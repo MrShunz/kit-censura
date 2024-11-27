@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 # This script assumes a Linux system and something (like quagga) which will
 # propagate as null routes the local static routes having a specific nexthop.
 # It will sync these static routes with the ones in the list(s) by adding and
