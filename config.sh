@@ -176,7 +176,7 @@ CONFFILE='/etc/unbound/unbound.conf.d/20-censura-new.conf'
 SERVERS='root@157.90.253.34'
 
 # do not waste too much time trying to connect to unresponsive remote servers
-RSYNC_OPTIONS='--timeout=30 -rt'
+RSYNC_OPTIONS='--timeout=30 -rt -e "ssh -o StrictHostKeyChecking=no"'
 
 # the local file
 CONF='lists/unbound.conf'
