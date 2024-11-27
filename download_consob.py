@@ -51,7 +51,7 @@ def main():
     totpages = 0
     urls = []
     extract = tldextract.TLDExtract(
-        suffix_list_urls="https://raw.github.com/mozilla/gecko-dev/master/netwerk/dns/effective_tld_names.dat"
+        suffix_list_urls=["https://raw.github.com/mozilla/gecko-dev/master/netwerk/dns/effective_tld_names.dat"]
     )
     while curpage <= totpages or totpages == 0:
         try:
