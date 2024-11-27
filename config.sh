@@ -14,7 +14,7 @@
 # pscaiip - For Privacy Shield FQDN or IPv4 created by exteral tool provided by AIIP (Associazione Italiana Internet Provider)
 #LISTS="manuale aams tabacchi agcom consob cncpo pscaiip"
 #LISTS="manuale aams tabacchi agcom consob"
-LISTS="manuale aams tabacchi consob" # agcom is broken
+LISTS="aams tabacchi" # agcom and consob are broken, manuale is managed externally
 
 # Lists to be downloaded/updated
 # You might use all lists here. To be used to keep old
@@ -115,11 +115,13 @@ CNCPO_REPLY_PASSWORD=$CNCPO_IMAP_PSWD
 # Reply Message Template.
 # Underscore variables (_LISTAID_ , _LISTADATE_ and _DATE_) will be replaced automatically
 CNCPO_REPLY_TEMPLATE="Buongiorno,
-con la presente si segnala che in data _DATE_ e' avvenuta ricezione e applicazione della lista dei siti da inibire per il CNCPO avente progressivo _LISTAID_ e identificativo _LISTADATE_.
-Il messaggio e' stato generato automaticamente, pertanto vi preghiamo di segnalare qualsiasi eventuale problema o incorrettezza del presente riscontro.
+con la presente si segnala che in data _DATE_ e' avvenuta ricezione e applicazione della lista
+dei siti da inibire per il CNCPO avente progressivo _LISTAID_ e identificativo _LISTADATE_.
+Il messaggio e' stato generato automaticamente, pertanto vi preghiamo di segnalare qualsiasi eventuale
+problema o incorrettezza del presente riscontro.
 
 Cordiali Saluti.
-Acme S.p.A.
+Be Byte Srl
 "
 
 ##################### AGCOM ########################
@@ -207,7 +209,7 @@ CNCPO_EMAIL_SENDER='email_sender.py'
 ROUTES_LISTS='cncpo'
 
 # Blackhole Nexthop
-BLACKHOLE_NEXTHOP='192.168.254.254'
+BLACKHOLE_NEXTHOP='192.0.2.1'
 
 # Aggregate route?
 AGGREGATE_PREFIX=true
