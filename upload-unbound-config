@@ -15,7 +15,7 @@ copy_config() {
   rc=0
   for server in $SERVERS; do
     dprintf "Copying to $server...\n"
-    if rsync $RSYNC_OPTIONS $file $server:$CONFFILE; then
+    if rsync "${RSYNC_OPTIONS[@]}" $file $server:$CONFFILE; then
       dprintf "Succesfully copied to $server.\n"
       # this script dynamically updates the running configuration
       if ssh $server /root/censura/unbound-update-censorship; then
