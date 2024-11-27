@@ -3,7 +3,6 @@
 import urllib3
 import requests, optparse, re
 from urlextract import URLExtract
-from tldextract import TLDExtract
 from collections import OrderedDict
 from bs4 import BeautifulSoup
 from bs4.element import Tag
@@ -11,6 +10,7 @@ from bs4.element import NavigableString
 from random import randint
 from time import sleep
 import ua_generator
+import tldextract
 
 
 # Funzione di Attesa Randomica per evitare di essere identificati come bot di Scraping
@@ -50,9 +50,8 @@ def main():
     curpage = 1
     totpages = 0
     urls = []
-    extract = TLDExtract(
-        suffix_list_url="https://raw.github.com/mozilla/gecko-dev/master/netwerk/dns/effective_tld_names.dat",
-        cache_file="/tmp/tldextract",
+    extract = tldextract.TLDExtract(
+        suffix_list_urls="https://raw.github.com/mozilla/gecko-dev/master/netwerk/dns/effective_tld_names.dat"
     )
     while curpage <= totpages or totpages == 0:
         try:
