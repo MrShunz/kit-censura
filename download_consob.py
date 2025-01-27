@@ -15,7 +15,7 @@ import tldextract
 
 # Funzione di Attesa Randomica per evitare di essere identificati come bot di Scraping
 def waitRand():
-    waitms = randint(1000, 5000) / 1000
+    waitms = randint(500, 2000) / 1000
     sleep(waitms)
 
 
