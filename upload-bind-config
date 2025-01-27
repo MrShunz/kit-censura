@@ -19,7 +19,7 @@ copy_config() {
     for zone in $LISTS; do
     
       if [ -e db.$zone ] ; then  
-         if rsync $RSYNC_OPTIONS db.$zone $server:$CONFDIR; then 
+         if rsync $RSYNC_OPTIONS db.$zone "root@[${server}]":$CONFDIR; then 
           dprintf "The zone db.$zone has been correctly copied to $CONFDIR on $server" >&2
         else
           dprintf "ERROR: the zone db.$zone has not been correctly copied to $server!" >&2
@@ -29,7 +29,7 @@ copy_config() {
 
     
     
-    if rsync $RSYNC_OPTIONS $file $server:$CONFFILE; then
+    if rsync $RSYNC_OPTIONS $file "root@[${server}]":$CONFFILE; then
       dprintf "Succesfully copied $file to $CONFFILE on $server."
       
       if ssh $server "named-checkconf $CONFFILE && rndc reconfig"; then
