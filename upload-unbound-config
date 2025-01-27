@@ -41,13 +41,6 @@ dprintf() {
 }
 
 ##############################################################################
-# debugging
-if [ "$PWD" = "/home/md/projects/kit-censura" ]; then
-  rsync() { echo "DEBUG: rsync $*"; }
-  ssh() { echo "DEBUG: ssh $*"; }
-fi
-
-##############################################################################
 if cmp -s $CONF $CONF.new; then
   # the new config file is unchanged, we are done
   dprintf "$CONF is unchanged, exiting.\n"

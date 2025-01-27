@@ -178,10 +178,10 @@ CURL_OPTS_aams=''
 CONFFILE='/etc/unbound/unbound.conf.d/20-censura-new.conf'
 
 # list of target DNS servers
-SERVERS='root@157.90.253.34'
+SERVERS='root@[2a01:4f8:c012:ecc2::1] root@[2a01:e600:100::100]'
 
 # do not waste too much time trying to connect to unresponsive remote servers
-RSYNC_OPTIONS=(--timeout=30 -rt -e 'ssh -o StrictHostKeyChecking=no')
+RSYNC_OPTIONS=(--timeout=5 -rt -e 'ssh -o StrictHostKeyChecking=no')
 
 # the local file
 CONF='lists/unbound.conf'
