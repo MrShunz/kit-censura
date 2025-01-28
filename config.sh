@@ -14,8 +14,8 @@
 # pscaiip - For Privacy Shield FQDN or IPv4 created by exteral tool provided by AIIP (Associazione Italiana Internet Provider)
 #LISTS="manuale aams tabacchi agcom consob cncpo pscaiip"
 #LISTS="manuale aams tabacchi agcom consob"
-#LISTS="aams tabacchi" # agcom and consob are broken, manuale is managed externally
-LISTS="aams tabacchi consob"
+LISTS="aams tabacchi consob agcom"
+
 # Lists to be downloaded/updated
 # You might use all lists here. To be used to keep old
 # lists active but you don't want to download or update
