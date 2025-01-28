@@ -18,14 +18,13 @@
 LISTS="aams tabacchi consob"
 # Lists to be downloaded/updated
 # You might use all lists here. To be used to keep old
-# lists active but you don't want to download or update 
+# lists active but you don't want to download or update
 # new records
 UPDATE_LISTS=$LISTS
 
+########### Alerting
 
-########### Alerting 
-
-# Set true to enable alerting 
+# Set true to enable alerting
 ALERT_ENABLE=true
 # insert NOC email to enable alerting
 NOC_EMAIL='noc@bebyte.it'
@@ -46,7 +45,7 @@ CNCPO_IMAP_PSWD='Shhh Dont tell anyone'
 # CNCPO ARCHIVE IMAP FOLDER
 CNCPO_IMAP_ARCHIVE_FOLDER='Archive'
 
-# CNCPO SENDER 
+# CNCPO SENDER
 CNCPO_MAIL_FROM='dipps012.B3L4@pecps.interno.it'
 
 # CNCPO ATTACHMENT FILE NAME
@@ -91,7 +90,7 @@ GPG_DECRYPT_ARGS="--batch --pinentry-mode loopback --passphrase $GPG_KEY_PASSWOR
 # SEND Automatic Reply?
 CNCPO_REPLY_ENABLED=true
 
-# Reply message Subject 
+# Reply message Subject
 CNCPO_REPLY_SUBJECT="Messaggio di avvenuta ricezione lista filtraggi CNCPO"
 
 # Reply message Sender
@@ -126,21 +125,17 @@ Be Byte Srl
 
 ##################### AGCOM ########################
 # AGCOM URL
-#URL_agcom='https://www.agcom.it/provvedimenti-a-tutela-del-diritto-d-autore'
-
-# UPDATE: Since agcom changed his website to one that is un-parsable, the agcom list has to become manually updated. 
-# Just put your FQDN lists in the lista.agcom file.
+URL_agcom='https://www.agcom.it/provvedimenti-a-tutela-del-diritto-d-autore'
 
 # Local File for AGCOM
 FILE_agcom='lista.agcom'
 
-# Skip SHA256 Checks 
+# Skip SHA256 Checks
 SKIP_SHA256_CKSUM=true
 
 ##################### MANUALE ########################
 # Local file for Manuale
 FILE_manuale='lista.manuale'
-
 
 ##################### PSCAIIP ########################
 # Local file for Piracy Shield Client by AAIP
@@ -171,7 +166,6 @@ FILE_consob='lista.consob'
 ##################### AAMS ########################
 # curl options for aams
 CURL_OPTS_aams=''
-
 
 ##################### DNS SECTION ########################
 # path of the file on each target server
@@ -233,5 +227,3 @@ LOGGING_ENABLE=true
 
 # Logfile path
 LOGFILE='/var/log/kit-censura.log'
-
-
