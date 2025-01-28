@@ -1,97 +1,128 @@
 #!/usr/bin/env python3
 
-import requests, optparse, sys
-from urllib3.exceptions import InsecureRequestWarning
-from bs4 import BeautifulSoup
-from random import randint
-from time import sleep
+import sys
+import requests
+import optparse
 import ua_generator
 
-# Funzione di Attesa Randomica per evitare di essere identificati come bot di Scraping
-def waitRand():
-    waitms = randint(100,2000)/1000
-    sleep(waitms)
+from bs4 import BeautifulSoup
+from time import sleep
+from random import randint
+from urllib3.exceptions import InsecureRequestWarning
+
+def attesa_casuale():
+   """Tempo di attesa casuale per evitare di essere identificati come bot"""
+   sleep(randint(100, 2000)/1000)
+
+def crea_sessione():
+   """Crea e configura una sessione requests con user agent casuale"""
+   sessione = requests.Session()
+   user_agent = ua_generator.generate(
+       device='desktop',
+       platform=('windows', 'macos', 'linux'),
+       browser=('chrome', 'edge', 'firefox', 'safari')
+   ).text
+   sessione.headers.update({
+       'User-Agent': user_agent,
+       'Referer': 'https://www.agcom.it'
+   })
+   return sessione
+
+def trova_url_allegato_b(sessione, url_provvedimento):
+   """Estrae l'URL dell'Allegato B dalla pagina del provvedimento"""
+   try:
+       attesa_casuale()
+       risposta = sessione.get(url_provvedimento, verify=False)
+       risposta.raise_for_status()
+       
+       soup = BeautifulSoup(risposta.content, "html.parser")
+       sezione_allegati = soup.find('ul', class_='elenco-allegati')
+       if not sezione_allegati:
+           return None
+           
+       for allegato in sezione_allegati.find_all('div', class_='allegato-wrapper'):
+           link = allegato.find('a')
+           if not link:
+               continue
+               
+           if 'Allegato B' in link.text:
+               url = link['href']
+               return f'https://www.agcom.it{url}' if not url.startswith('http') else url
+               
+       return None
+       
+   except Exception:
+       return None
+
+def scarica_allegato(sessione, url, file_output):
+   """Scarica il file dall'URL e lo salva nel file di output"""
+   try:
+       attesa_casuale()
+       risposta = sessione.get(url, verify=False)
+       risposta.raise_for_status()
+       
+       with open(file_output, 'wb') as f:
+           f.write(risposta.content)
+       return True
+       
+   except Exception:
+       return False
 
 def main():
-    global options
+   parser = optparse.OptionParser(usage="uso: %prog -o file_output")
+   parser.add_option("-o", "--output", dest="file_output", help="Percorso file di output")
+   parser.add_option("-v", "--verbose", action="store_true", dest="verbose", 
+                     help="Abilita log dettagliati", default=False)
 
-    # Variabili
-    global provvedimento
-    global lastProvvedimento
-    global allegatoB
+   (opzioni, args) = parser.parse_args()
+   
+   if opzioni.file_output is None:
+       parser.error("Il percorso del file di output (-o) è obbligatorio")
 
-    # Aggiunte Variabili per Evitare di essere identificati come bot di Scraping
-    global referer
-    global user_agent
+   requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
-    provvedimento = ""
-    lastProvvedimento = "https://www.agcom.it/provvedimenti-a-tutela-del-diritto-d-autore"
-    allegatoB = "https://www.example.com"
-    referer = lastProvvedimento
+   url_base = "https://www.agcom.it"
+   url_provvedimenti = f"{url_base}/provvedimenti-a-tutela-del-diritto-d-autore"
+   sessione = crea_sessione()
+   
+   pagina_corrente = 1
+   max_pagine = 10
 
-    # Imposto User Agent Randomico
-    user_agent = ua_generator.generate(device='desktop', platform=('windows', 'macos', 'linux'), browser=('chrome', 'edge', 'firefox', 'safari')).text
+   while pagina_corrente < max_pagine:
+       try:
+           if pagina_corrente > 1:
+               attesa_casuale()
+           
+           url = f"{url_provvedimenti}?page={pagina_corrente-1}"
+           risposta = sessione.get(url, verify=False)
+           risposta.raise_for_status()
+           
+           soup = BeautifulSoup(risposta.content, "html.parser")
+           schede = soup.find_all('article', class_='card')
+           
+           for scheda in schede:
+               categoria = scheda.find('span', class_='category')
+               if not categoria or not any(x in categoria.text.lower() for x in ['determina', 'delibera']):
+                   continue
 
-    # Elaborazione argomenti della linea di comando
-    usage = "usage: %prog [options] arg"
-    parser = optparse.OptionParser(usage)
-    parser.add_option("-o", "--output", dest="out_file", help="File di output generato")
+               link = scheda.find('a', class_='read-more')
+               if not link:
+                   continue
+                   
+               url_provvedimento = url_base + link['href']
+               url_allegato_b = trova_url_allegato_b(sessione, url_provvedimento)
+               
+               if url_allegato_b and scarica_allegato(sessione, url_allegato_b, opzioni.file_output):
+                   return True
 
-    (options, args) = parser.parse_args()
-    if len(args) == 1:
-        parser.error("Numero di argomenti non corretto")
-    if (options.out_file is None):
-        parser.error("Numero di argomenti non corretto")
+       except requests.exceptions.RequestException:
+           break
+       except Exception:
+           break
 
-    # Disabilita i warning relativi alla mancata verifica dei certificati
-    requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+       pagina_corrente += 1
 
-    curpage=1
-    lastProvvedimento = None
-    while((curpage<10) and (lastProvvedimento is None)):
-        url = "https://www.agcom.it/provvedimenti-a-tutela-del-diritto-d-autore?p_p_id=listapersconform_WAR_agcomlistsportlet&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&p_p_col_id=column-1&p_p_col_count=1&_listapersconform_WAR_agcomlistsportlet_numpagris=10&_listapersconform_WAR_agcomlistsportlet_curpagris={}".format(curpage)
-        if(curpage > 1): waitRand()
-        s = requests.Session()
-        s.headers.update({'referer': referer, 'user-agent': user_agent })
-        page = s.get(url, verify=False)
-        referer = url
-        soup = BeautifulSoup(page.content, "html.parser")
-        for div in soup.findAll('div', attrs={'class':'risultato'}):
-            if lastProvvedimento: break
-            for p in div.findAll('p'):
-                if ((p.text.lower().find("provvedimento")==-1) and (p.text.lower().find("ordine")==-1)): continue
-                provvedimento = None
-                for a in div.findAll('a'):
-                    if (a.text.lower().find("delibera")!=-1 or a.text.lower().find("determina")!=-1):
-                        provvedimento = a
-                        break
-                if provvedimento:
-                    lastProvvedimento = "https://www.agcom.it"+provvedimento["href"]
-                    #### Check Allegato ######
-                    waitRand()
-                    s = requests.Session()
-                    s.headers.update({'referer': referer, 'user-agent': user_agent })
-                    page = s.get(lastProvvedimento, allow_redirects=True, verify=False)
-                    soup = BeautifulSoup(page.content, "html.parser")
-                    # Controllo se ho trovato un Allegato B vedendo se la variabile inizializzata è stata modificata
-                    # Solo se allegatoB è stato trovato, allora lo elaboro
-                    for allegato in soup.find_all("a"):
-                        if not "Allegato B" in allegato.text:continue
-                        allegatoB = allegato["href"]
-                        break
-                    if not "www.example.com" in allegatoB:
-                        waitRand()
-                        s = requests.Session()
-                        s.headers.update({'referer': referer, 'user-agent': user_agent })
-                        response = s.get(allegatoB, allow_redirects=True, verify=False)
-                        with open(options.out_file,'wb') as f:
-                            f.write(response.content)
-                    else:
-                        lastProvvedimento = None
-                    break
-        curpage = curpage + 1
-    if lastProvvedimento is None:
-        return(False)
+   return False
 
 if __name__ == '__main__':
-    main()
+   sys.exit(0 if main() else 1)
