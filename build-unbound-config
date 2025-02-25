@@ -29,7 +29,7 @@ list2unboundconf() {
 echo "server:" > $CONF.new
 for list in $LISTS; do
   case "$list" in
-  cncpo)    ipredir='212.25.179.125' ;;
+  cncpo)    ipredir='217.61.242.31' ;;
   aams)     ipredir='217.175.53.72' ;;
   tabacchi) ipredir='217.175.53.228' ;;
   agcom)    ipredir='217.61.242.25' ;;
