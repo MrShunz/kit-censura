@@ -1,8 +1,12 @@
 #!/bin/bash -e
 
+if [ ! "$1"]; then
+    echo "Error: Input file is missing!"
+    exit 1
+fi
+
 unbound-checkconf
 
 cd /etc/unbound/unbound.conf.d/
 
-/root/censura/unbound-apply-config  --old-file=20-censura.conf --new-file=20-censura-new.conf
-/root/censura/unbound-apply-config  --old-file=30-cncpo.conf --new-file=30-cncpo.conf.new
+/root/censura/unbound-apply-config  --old-file="$1.conf" --new-file="$1-new.conf"
