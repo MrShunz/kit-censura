@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+# ---------------------------
+# Written by IA
+# ---------------------------
 import sys
 import re
 import os
@@ -120,6 +122,7 @@ def is_txt_url(u: str) -> bool:
     path = urlparse(u).path.lower()
     if path.endswith(".txt"):
         return True
+    # a volte c'è un "download?..." con parametro che contiene .txt
     q = parse_qs(urlparse(u).query)
     for vals in q.values():
         for v in vals:
@@ -127,42 +130,99 @@ def is_txt_url(u: str) -> bool:
                 return True
     return False
 
-def main():
-   parser = optparse.OptionParser(usage="uso: %prog -o file_output")
-   parser.add_option("-o", "--output", dest="file_output", help="Percorso file di output")
-   parser.add_option("-v", "--verbose", action="store_true", dest="verbose", 
-                     help="Abilita log dettagliati", default=False)
+def text_has_allegato_b(txt: str) -> bool:
+    t = (txt or "").lower()
+    return "allegato b" in t
 
-   (opzioni, args) = parser.parse_args()
-   
-   if opzioni.file_output is None:
-       parser.error("Il percorso del file di output (-o) è obbligatorio")
+def find_download_links(page_url, html_text):
+    """Restituisce TUTTI i link plausibili di download nella pagina (assoluti)."""
+    cands = []
+    for absu, txt in parse_anchors(page_url, html_text):
+        low = (txt or "").lower()
+        if looks_like_file_url(absu) or "download" in low or "scarica" in low or "allegato" in low:
+            cands.append(absu)
+    return cands
 
-   requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+# ---------------------------
+# Trovare l'ultimo Allegato B
+# ---------------------------
+def resolve_allegato_b_urls(post_url, timeout, verbose=False):
+    """Ritorna (lista_txt, lista_altri_formati) per l’“Allegato B” nel post."""
+    html_text, ctype, _ = http_get(post_url, timeout=timeout, binary=False)
+    if verbose:
+        print(f"[INFO] Apertura post: {post_url} (Content-Type: {ctype})", file=sys.stderr)
 
-   url_base = "https://www.agcom.it"
-   url_provvedimenti = f"{url_base}/provvedimenti-a-tutela-del-diritto-d-autore"
-   sessione = crea_sessione()
-   
-   pagina_corrente = 1
-   max_pagine = 10
+    txt_candidates = []
+    any_candidates = []
 
-   while pagina_corrente < max_pagine:
-       try:
-           if pagina_corrente > 1:
-               attesa_casuale()
-           
-           url = f"{url_provvedimenti}?page={pagina_corrente-1}"
-           risposta = sessione.get(url, verify=False)
-           risposta.raise_for_status()
-           
-           soup = BeautifulSoup(risposta.content, "html.parser")
-           schede = soup.find_all('article', class_='card')
-           
-           for scheda in schede:
-               categoria = scheda.find('span', class_='category')
-               if not categoria or not any(x in categoria.text.lower() for x in ['determina', 'delibera']):
-                   continue
+    # 1) Link <a> con testo 'Allegato B'
+    for absu, txt in parse_anchors(post_url, html_text):
+        if not is_same_domain(absu, "agcom.it"):
+            continue
+        if not text_has_allegato_b(txt):
+            continue
+
+        if looks_like_file_url(absu):
+            (txt_candidates if is_txt_url(absu) else any_candidates).append(absu)
+            continue
+
+        # Pagina intermedia → cerca link di download
+        try:
+            inner_html, inner_type, _ = http_get(absu, timeout=timeout, binary=False)
+        except Exception as e:
+            if verbose:
+                print(f"[WARN] Impossibile aprire pagina allegato: {absu} ({e})", file=sys.stderr)
+            continue
+
+        links = find_download_links(absu, inner_html)
+        for u in links:
+            if is_txt_url(u):
+                txt_candidates.append(u)
+            else:
+                any_candidates.append(u)
+
+    # 2) Fallback
+    if not txt_candidates and not any_candidates:
+        for absu, txt in parse_anchors(post_url, html_text):
+            if not is_same_domain(absu, "agcom.it"):
+                continue
+            if "download?" in absu.lower() or looks_like_file_url(absu):
+                if "allegato" in (txt or "").lower() or "b" == (txt or "").strip().lower():
+                    (txt_candidates if is_txt_url(absu) else any_candidates).append(absu)
+
+    return dedupe(txt_candidates), dedupe(any_candidates)
+
+def dedupe(seq):
+    out, seen = [], set()
+    for x in seq:
+        if x not in seen:
+            out.append(x); seen.add(x)
+    return out
+
+def pick_latest_post_with_allegato_b(listing_url, timeout, verbose=False, max_candidates=60):
+    """Scandisce i link dell’elenco; restituisce il primo post che ha Allegato B."""
+    listing_html, ctype, _ = http_get(listing_url, timeout=timeout, binary=False)
+    if verbose:
+        print(f"[INFO] Apertura listing: {listing_url} (Content-Type: {ctype})", file=sys.stderr)
+
+    anchors = parse_anchors(listing_url, listing_html)
+
+    checked = 0
+    seen_pages = set()
+    for absu, txt in anchors:
+        if checked >= max_candidates:
+            break
+        if not absu.lower().startswith("http"):
+            continue
+        if not is_same_domain(absu, "agcom.it"):
+            continue
+        if absu in seen_pages:
+            continue
+        seen_pages.add(absu)
+
+        path = urlparse(absu).path.lower()
+        if any(path.endswith(ext) for ext in (".jpg",".png",".gif",".svg",".css",".js")):
+            continue
 
         checked += 1
         if verbose:
@@ -183,43 +243,8 @@ def main():
 # ---------------------------
 # Post-processing del TXT
 # ---------------------------
+# Righe di versione tipo: "0000311_2024.06.06" o con "-" al posto di "_"
 VERSION_LINE_RE = re.compile(r"^\s*\d{5,}[_-]\d{4}\.\d{2}\.\d{2}\s*$")
-
-def clean_sort_dedupe_domains(text):
-    """
-    - Rimuove QUALSIASI riga che corrisponde al pattern versione
-      (es. 0000311_2024.06.06), ovunque si trovi nel file
-    - Normalizza: strip, minuscolo, toglie eventuale punto finale
-    - Deduplica e ordina
-    - Ritorna testo con LF finale
-    """
-    lines = text.split("\n")
-
-    cleaned = []
-    seen = set()
-    for ln in lines:
-        # normalizza whitespace ed EOL già gestiti a monte
-        s = ln.strip()
-        if not s:
-            continue
-        # **NUOVO**: scarta la riga di versione ovunque sia
-        if VERSION_LINE_RE.match(s):
-            continue
-
-        s = s.lower()
-        # opzionale: togli punto finale residuo
-        if s.endswith("."):
-            s = s[:-1]
-        # ignora eventuali commenti
-        if s.startswith("#"):
-            continue
-
-        if s not in seen:
-            seen.add(s)
-            cleaned.append(s)
-
-    cleaned.sort()
-    return "\n".join(cleaned) + ("\n" if cleaned else "")
 
 def bytes_to_text_normalized(data, headers):
     """
@@ -243,12 +268,47 @@ def bytes_to_text_normalized(data, headers):
         except Exception:
             text = data.decode("utf-8", errors="replace")
 
-    # Normalizza EOL: CRLF/CR -> LF
+    # Normalizza EOL: CRLF/CR -> LF (toglie i ^M)
     text = text.replace("\r\n", "\n").replace("\r", "\n")
-    # Rimuovi BOM se rimasto
+    # Rimuovi BOM residuo
     if text.startswith("\ufeff"):
         text = text.lstrip("\ufeff")
     return text
+
+def clean_sort_dedupe_domains(text):
+    """
+    - Rimuove QUALSIASI riga che corrisponde al pattern versione
+      (es. 0000311_2024.06.06), ovunque si trovi nel file
+    - Normalizza: strip, minuscolo, toglie eventuale punto finale
+    - Deduplica e ordina
+    - Ritorna testo con LF finale
+    """
+    lines = text.split("\n")
+
+    cleaned = []
+    seen = set()
+    for ln in lines:
+        s = ln.strip()
+        if not s:
+            continue
+        # scarta la riga di versione ovunque sia
+        if VERSION_LINE_RE.match(s):
+            continue
+
+        s = s.lower()
+        # opzionale: togli punto finale residuo
+        if s.endswith("."):
+            s = s[:-1]
+        # ignora eventuali commenti
+        if s.startswith("#"):
+            continue
+
+        if s not in seen:
+            seen.add(s)
+            cleaned.append(s)
+
+    cleaned.sort()
+    return "\n".join(cleaned) + ("\n" if cleaned else "")
 
 # ---------------------------
 # Download helper
