@@ -124,19 +124,17 @@ Be Byte Srl
 "
 
 ##################### AGCOM ########################
-# AGCOM URL
-URL_agcom='https://www.agcom.it/provvedimenti-a-tutela-del-diritto-d-autore'
-
 # Local File for AGCOM
 FILE_agcom='lista.agcom'
 
-# Skip SHA256 Checks 
-SKIP_SHA256_CKSUM=true
+# AGCOM publish the DDAs one year behind. 
+# Do you want to update $FILE_agcom by hand instead of downloading it? Just put 'yes' here
+AGCOM_MANUAL='no'
+
 
 ##################### MANUALE ########################
 # Local file for Manuale
 FILE_manuale='lista.manuale'
-
 
 
 ##################### PSCAIIP ########################
