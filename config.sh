@@ -137,6 +137,8 @@ SKIP_SHA256_CKSUM=true
 # Local file for Manuale
 FILE_manuale='lista.manuale'
 
+
+
 ##################### PSCAIIP ########################
 # Local file for Piracy Shield Client by AAIP
 PATH_pscaiip='/opt/piracy-shield-agent-main/'
@@ -167,6 +169,13 @@ FILE_consob='lista.consob'
 # Local file for Aams list
 FILE_consob='lista.aams'
 
+##################### TABACCHI ########################
+FILE_tabacchi='lista.tabacchi'
+
+##################### TABACCHI ########################
+FILE_tabacchi='lista.tabacchi'
+
+
 ##################### DNS SECTION ########################
 # path of the file on each target server
 CONFFILE='/etc/unbound/unbound.conf.d/20-censura-new.conf'
@@ -195,7 +204,10 @@ AGCOM_DOWNLOAD_HELPER='download_agcom.py'
 CONSOB_DOWNLOAD_HELPER='download_consob.py'
 
 # Download Helper for aams
-CONSOB_DOWNLOAD_HELPER='download_aams.py'
+AAMS_DOWNLOAD_HELPER='download_aams.py'
+
+# Download Helper for tabacchi
+TABACCHI_DOWNLOAD_HELPER='download_tabacchi.py'
 
 # Download Helper for CNCPO (in CNCPO_WORKING_DIR)
 CNCPO_DOWNLOAD_HELPER='download_attachment.py'
