@@ -172,10 +172,6 @@ FILE_consob='lista.aams'
 ##################### TABACCHI ########################
 FILE_tabacchi='lista.tabacchi'
 
-##################### TABACCHI ########################
-FILE_tabacchi='lista.tabacchi'
-
-
 ##################### DNS SECTION ########################
 # path of the file on each target server
 CONFFILE='/etc/unbound/unbound.conf.d/20-censura-new.conf'
