@@ -1,72 +1,131 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 import sys
-import requests
-import optparse
-import ua_generator
+import re
+import os
+import argparse
+import html
+from pathlib import Path
+from urllib.request import Request, urlopen
+from urllib.parse import urljoin, urlparse, parse_qs
+from urllib.error import URLError, HTTPError
+from html.parser import HTMLParser
 
-from bs4 import BeautifulSoup
-from time import sleep
-from random import randint
-from urllib3.exceptions import InsecureRequestWarning
+LISTING_URL = "https://www.agcom.it/provvedimenti-a-tutela-del-diritto-d-autore"
+UA = "Mozilla/5.0 (Python urllib; AGCOM Allegato B fetcher)"
 
-def attesa_casuale():
-   """Tempo di attesa casuale per evitare di essere identificati come bot"""
-   sleep(randint(100, 2000)/1000)
+# ---------------------------
+# HTTP helpers
+# ---------------------------
+def http_get(url, timeout=25, binary=False):
+    req = Request(url, headers={"User-Agent": UA})
+    with urlopen(req, timeout=timeout) as resp:
+        data = resp.read()
+        if binary:
+            return data, resp.headers.get_content_type(), resp.headers
+        charset = resp.headers.get_content_charset() or "utf-8"
+        return data.decode(charset, errors="replace"), resp.headers.get_content_type(), resp.headers
 
-def crea_sessione():
-   """Crea e configura una sessione requests con user agent casuale"""
-   sessione = requests.Session()
-   user_agent = ua_generator.generate(
-       device='desktop',
-       platform=('windows', 'macos', 'linux'),
-       browser=('chrome', 'edge', 'firefox', 'safari')
-   ).text
-   sessione.headers.update({
-       'User-Agent': user_agent,
-       'Referer': 'https://www.agcom.it'
-   })
-   return sessione
+def is_same_domain(url, domain="agcom.it"):
+    try:
+        netloc = urlparse(url).netloc.lower()
+        return netloc.endswith(domain)
+    except Exception:
+        return False
 
-def trova_url_allegato_b(sessione, url_provvedimento):
-   """Estrae l'URL dell'Allegato B dalla pagina del provvedimento"""
-   try:
-       attesa_casuale()
-       risposta = sessione.get(url_provvedimento, verify=False)
-       risposta.raise_for_status()
-       
-       soup = BeautifulSoup(risposta.content, "html.parser")
-       sezione_allegati = soup.find('ul', class_='elenco-allegati')
-       if not sezione_allegati:
-           return None
-           
-       for allegato in sezione_allegati.find_all('div', class_='allegato-wrapper'):
-           link = allegato.find('a')
-           if not link:
-               continue
-               
-           if 'Allegato B' in link.text:
-               url = link['href']
-               return f'https://www.agcom.it{url}' if not url.startswith('http') else url
-               
-       return None
-       
-   except Exception:
-       return None
+def content_disposition_filename(headers):
+    cd = headers.get("Content-Disposition") or headers.get("content-disposition")
+    if not cd:
+        return None
+    # filename*, RFC 5987
+    m = re.search(r'filename\*\s*=\s*(?:UTF-8\'\')?([^;]+)', cd, flags=re.I)
+    if m:
+        return unquote_pct(m.group(1)).strip('"\' ')
+    # filename=
+    m = re.search(r'filename\s*=\s*"([^"]+)"', cd, flags=re.I)
+    if m:
+        return m.group(1)
+    m = re.search(r'filename\s*=\s*([^;]+)', cd, flags=re.I)
+    if m:
+        return m.group(1).strip('"\' ')
+    return None
 
-def scarica_allegato(sessione, url, file_output):
-   """Scarica il file dall'URL e lo salva nel file di output"""
-   try:
-       attesa_casuale()
-       risposta = sessione.get(url, verify=False)
-       risposta.raise_for_status()
-       
-       with open(file_output, 'wb') as f:
-           f.write(risposta.content)
-       return True
-       
-   except Exception:
-       return False
+def unquote_pct(s):
+    try:
+        from urllib.parse import unquote
+        return unquote(s)
+    except Exception:
+        return s
+
+# ---------------------------
+# HTML parsing
+# ---------------------------
+class AnchorCollector(HTMLParser):
+    """Raccoglie (href, text) in ordine di apparizione."""
+    def __init__(self):
+        super().__init__()
+        self.links = []  # list[(href, text)]
+        self._in_a = False
+        self._href = None
+        self._buf = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() == "a":
+            self._in_a = True
+            self._href = None
+            for k, v in attrs:
+                if k.lower() == "href" and v:
+                    self._href = v.strip()
+                    break
+
+    def handle_endtag(self, tag):
+        if tag.lower() == "a" and self._in_a:
+            text = html.unescape("".join(self._buf)).strip()
+            if self._href:
+                self.links.append((self._href, text))
+            self._in_a = False
+            self._href = None
+            self._buf = []
+
+    def handle_data(self, data):
+        if self._in_a and data:
+            self._buf.append(data)
+
+def parse_anchors(base_url, html_text):
+    p = AnchorCollector()
+    p.feed(html_text)
+    out = []
+    seen = set()
+    for href, text in p.links:
+        if not href or href.startswith("#"):
+            continue
+        absu = urljoin(base_url, href)
+        key = (absu, text.strip())
+        if key not in seen:
+            out.append((absu, text.strip()))
+            seen.add(key)
+    return out
+
+# ---------------------------
+# Heuristics
+# ---------------------------
+FILE_EXTS = (".pdf", ".doc", ".docx", ".odt", ".rtf", ".xls", ".xlsx", ".csv", ".zip", ".7z", ".txt")
+
+def looks_like_file_url(u: str) -> bool:
+    path = urlparse(u).path.lower()
+    return any(path.endswith(ext) for ext in FILE_EXTS)
+
+def is_txt_url(u: str) -> bool:
+    path = urlparse(u).path.lower()
+    if path.endswith(".txt"):
+        return True
+    q = parse_qs(urlparse(u).query)
+    for vals in q.values():
+        for v in vals:
+            if ".txt" in v.lower():
+                return True
+    return False
 
 def main():
    parser = optparse.OptionParser(usage="uso: %prog -o file_output")
@@ -105,24 +164,200 @@ def main():
                if not categoria or not any(x in categoria.text.lower() for x in ['determina', 'delibera']):
                    continue
 
-               link = scheda.find('a', class_='read-more')
-               if not link:
-                   continue
-                   
-               url_provvedimento = url_base + link['href']
-               url_allegato_b = trova_url_allegato_b(sessione, url_provvedimento)
-               
-               if url_allegato_b and scarica_allegato(sessione, url_allegato_b, opzioni.file_output):
-                   return True
+        checked += 1
+        if verbose:
+            print(f"[INFO] Controllo post candidato {checked}: {absu}", file=sys.stderr)
 
-       except requests.exceptions.RequestException:
-           break
-       except Exception:
-           break
+        try:
+            txt_c, any_c = resolve_allegato_b_urls(absu, timeout=timeout, verbose=verbose)
+        except Exception as e:
+            if verbose:
+                print(f"[WARN] Errore su {absu}: {e}", file=sys.stderr)
+            continue
 
-       pagina_corrente += 1
+        if txt_c or any_c:
+            return absu, txt_c, any_c
 
-   return False
+    return None, [], []
 
-if __name__ == '__main__':
-   sys.exit(0 if main() else 1)
+# ---------------------------
+# Post-processing del TXT
+# ---------------------------
+VERSION_LINE_RE = re.compile(r"^\s*\d{5,}[_-]\d{4}\.\d{2}\.\d{2}\s*$")
+
+def clean_sort_dedupe_domains(text):
+    """
+    - Rimuove QUALSIASI riga che corrisponde al pattern versione
+      (es. 0000311_2024.06.06), ovunque si trovi nel file
+    - Normalizza: strip, minuscolo, toglie eventuale punto finale
+    - Deduplica e ordina
+    - Ritorna testo con LF finale
+    """
+    lines = text.split("\n")
+
+    cleaned = []
+    seen = set()
+    for ln in lines:
+        # normalizza whitespace ed EOL già gestiti a monte
+        s = ln.strip()
+        if not s:
+            continue
+        # **NUOVO**: scarta la riga di versione ovunque sia
+        if VERSION_LINE_RE.match(s):
+            continue
+
+        s = s.lower()
+        # opzionale: togli punto finale residuo
+        if s.endswith("."):
+            s = s[:-1]
+        # ignora eventuali commenti
+        if s.startswith("#"):
+            continue
+
+        if s not in seen:
+            seen.add(s)
+            cleaned.append(s)
+
+    cleaned.sort()
+    return "\n".join(cleaned) + ("\n" if cleaned else "")
+
+def bytes_to_text_normalized(data, headers):
+    """
+    Decodifica i bytes in testo, rimuove BOM, normalizza le EOL a Unix (LF).
+    """
+    charset = None
+    try:
+        charset = headers.get_content_charset()
+    except Exception:
+        pass
+
+    if charset:
+        try:
+            text = data.decode(charset, errors="replace")
+        except Exception:
+            text = data.decode("utf-8", errors="replace")
+    else:
+        # utf-8-sig rimuove eventuale BOM
+        try:
+            text = data.decode("utf-8-sig")
+        except Exception:
+            text = data.decode("utf-8", errors="replace")
+
+    # Normalizza EOL: CRLF/CR -> LF
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    # Rimuovi BOM se rimasto
+    if text.startswith("\ufeff"):
+        text = text.lstrip("\ufeff")
+    return text
+
+# ---------------------------
+# Download helper
+# ---------------------------
+def guess_filename(file_url, headers=None, default="Allegato_B.txt"):
+    if headers:
+        fn = content_disposition_filename(headers)
+        if fn:
+            return fn
+    path = urlparse(file_url).path
+    base = os.path.basename(path)
+    return base or default
+
+def ensure_txt_name(name):
+    return name if name.lower().endswith(".txt") else (os.path.splitext(name)[0] + ".txt")
+
+def save_text_to_path(text: str, output_path: Path):
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
+
+def download(file_url, timeout=25, verbose=False):
+    data, ctype, headers = http_get(file_url, timeout=timeout, binary=True)
+    if verbose:
+        clen = headers.get("Content-Length") or len(data)
+        print(f"[INFO] Download: {file_url} ({ctype}, {clen} bytes)", file=sys.stderr)
+    return data, ctype, headers
+
+# ---------------------------
+# CLI
+# ---------------------------
+def main():
+    ap = argparse.ArgumentParser(
+        description="Scarica l'ultimo 'Allegato B' (TXT), pulisce e stampa/salva l'elenco (LF, ordinato, no duplicati)."
+    )
+    ap.add_argument("--start", default=LISTING_URL, help="URL della pagina elenco (default: %(default)s)")
+    ap.add_argument("-o", "--output", default=None,
+                    help="Percorso di output (file o cartella). Se omesso, stampa su stdout.")
+    ap.add_argument("--timeout", type=int, default=25, help="Timeout HTTP in secondi (default: %(default)s)")
+    ap.add_argument("--max-candidates", type=int, default=60, help="Numero massimo di link-candidati da esplorare (default: %(default)s)")
+    ap.add_argument("--require-txt", dest="require_txt", action="store_true",
+                    help="Fallisce se non trova un Allegato B in formato .txt")
+    ap.add_argument("-v", "--verbose", action="store_true", help="Log dettagliati su stderr")
+    args = ap.parse_args()
+
+    # 1) Trova il post più recente con Allegato B
+    post_url, txt_candidates, any_candidates = pick_latest_post_with_allegato_b(
+        args.start, timeout=args.timeout, verbose=args.verbose, max_candidates=args.max_candidates
+    )
+    if not post_url:
+        print("ERRORE: non sono riuscito a individuare un post con 'Allegato B'.", file=sys.stderr)
+        sys.exit(1)
+
+    if args.verbose:
+        print(f"[OK] Post trovato: {post_url}", file=sys.stderr)
+        if txt_candidates:
+            print(f"[INFO] Candidati TXT trovati: {len(txt_candidates)}", file=sys.stderr)
+        if any_candidates:
+            print(f"[INFO] Altri candidati: {len(any_candidates)}", file=sys.stderr)
+
+    # 2) Scegli URL finale (preferisci TXT)
+    if args.require_txt and not txt_candidates:
+        print("ERRORE: nessun Allegato B in formato TXT trovato.", file=sys.stderr)
+        sys.exit(2)
+    candidates_order = txt_candidates + any_candidates
+    if not candidates_order:
+        print("ERRORE: nessun link per 'Allegato B' trovato nel post.", file=sys.stderr)
+        sys.exit(3)
+    chosen_url = candidates_order[0]
+
+    # 3) Scarica bytes
+    try:
+        data, ctype, headers = download(chosen_url, timeout=args.timeout, verbose=args.verbose)
+    except Exception as e:
+        print(f"ERRORE durante il download: {e}", file=sys.stderr)
+        sys.exit(4)
+
+    # 4) Decodifica/normalizza testo e pulisci elenco
+    text = bytes_to_text_normalized(data, headers)
+    result = clean_sort_dedupe_domains(text)
+
+    # 5) Output: stdout (se -o omesso) oppure salva su file
+    if args.output is None:
+        # stampa contenuto del file risultante
+        sys.stdout.write(result)
+    else:
+        out_arg = Path(args.output)
+        if out_arg.exists() and out_arg.is_dir():
+            fname = ensure_txt_name(guess_filename(chosen_url, headers=headers, default="Allegato_B.txt"))
+            dest = out_arg / fname
+        else:
+            if str(out_arg).endswith(os.sep) or (out_arg.suffix == "" and not out_arg.exists()):
+                out_arg.mkdir(parents=True, exist_ok=True)
+                fname = ensure_txt_name(guess_filename(chosen_url, headers=headers, default="Allegato_B.txt"))
+                dest = out_arg / fname
+            else:
+                dest = out_arg
+                # forza .txt se il path è senza estensione
+                if dest.suffix == "":
+                    dest = dest.with_suffix(".txt")
+
+        try:
+            save_text_to_path(result, dest)
+            if args.verbose:
+                print(f"[OK] Salvato: {dest}", file=sys.stderr)
+        except Exception as e:
+            print(f"ERRORE nel salvataggio su {dest}: {e}", file=sys.stderr)
+            sys.exit(5)
+
+if __name__ == "__main__":
+    main()
+
