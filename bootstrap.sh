@@ -1,11 +1,13 @@
 #!/bin/bash -x
 
-echo "Creating new empty files..."
+chmod +x download_*.py
 
-touch lista.agcom
-touch lista.consob
-touch lista.manuale
-touch lista.manuale-ip
+echo Creating new empty files:
+
+for lista in manuale consob agcom aams tabacchi pscaiip; do
+	touch lista.$lista
+	touch lista.$lista-ip
+done
 
 echo "Creating dirs..."
 mkdir -p tmp lists gpg
