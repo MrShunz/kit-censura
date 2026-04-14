@@ -13,6 +13,7 @@ from urllib.error import URLError, HTTPError
 from html.parser import HTMLParser
 
 LISTING_URL = "https://www.adm.gov.it/portale/siti-web-inibiti-giochi"
+FALLBACK_TXT_URL = "https://www.adm.gov.it/portale/documents/20182/114059352/elenco_siti_inibiti_giochi.txt"
 UA = "Mozilla/5.0 (Python urllib; ADM elenco_siti_inibiti_giochi.txt fetcher)"
 
 # ---------------------------
@@ -135,31 +136,80 @@ TARGET_SUBSTR = "elenco_siti_inibiti_giochi.txt"
 def find_txt_url_on_page(listing_url, timeout=25, verbose=False):
     """
     Strategia robusta:
-      1) cerca tra gli <a href=...> un URL che contenga 'elenco_siti_inibiti_giochi.txt'
-      2) se non trovato, scansiona l'HTML grezzo per path/URL che contengono quella stringa
-    Ritorna l'URL assoluto o None.
+      1) cerca anchor con testo che richiami l'elenco TXT
+      2) cerca href che contengano il nome storico del file
+      3) cerca qualunque link .txt sul dominio ADM, escludendo SHA/controllo
+      4) fallback regex sull'HTML grezzo
     """
     html_text, ctype, _ = http_get(listing_url, timeout=timeout, binary=False)
     if verbose:
         print(f"[INFO] Apertura pagina: {listing_url} (Content-Type: {ctype})", file=sys.stderr)
 
-    # (1) anchor href
-    for absu, txt in parse_anchors(listing_url, html_text):
-        if TARGET_SUBSTR in absu.lower():
+    anchors = parse_anchors(listing_url, html_text)
+
+    def score_link(absu, text):
+        u = absu.lower()
+        t = (text or "").strip().lower()
+        score = 0
+
+        # preferisci il link che nel testo parla chiaramente dell'elenco txt
+        if "elenco dei siti soggetti ad inibizione" in t:
+            score += 100
+        if "txt" in t:
+            score += 40
+
+        # nome storico del file
+        if "elenco_siti_inibiti_giochi.txt" in u:
+            score += 80
+
+        # link testuale o URL che puntano a txt
+        if is_txt_url(u):
+            score += 30
+
+        # evita il file di controllo SHA
+        if "sha" in t or "sha" in u or "controllo" in t:
+            score -= 200
+
+        # preferisci ADM
+        if is_same_domain(absu):
+            score += 10
+
+        return score
+
+    # 1) migliore anchor candidata
+    ranked = sorted(
+        ((score_link(absu, txt), absu, txt) for absu, txt in anchors),
+        reverse=True
+    )
+    for score, absu, txt in ranked:
+        if score >= 60:
+            if verbose:
+                print(f"[INFO] Candidato TXT da anchor: {absu} | testo={txt!r} | score={score}", file=sys.stderr)
             return absu
 
-    # (2) scan HTML grezzo – prova a ricostruire un URL plausibile
-    # cattura assoluti (http/https) e relativi
+    # 2) qualunque link .txt ADM, escludendo sha/controllo
+    for absu, txt in anchors:
+        u = absu.lower()
+        t = (txt or "").lower()
+        if is_same_domain(absu) and is_txt_url(u) and "sha" not in u and "sha" not in t and "controllo" not in t:
+            if verbose:
+                print(f"[INFO] Candidato TXT generico: {absu} | testo={txt!r}", file=sys.stderr)
+            return absu
+
+    # 3) fallback su HTML grezzo
     patterns = [
-        r'(?P<u>https?://[^\s"\'<>]*elenco_siti_inibiti_giochi\.txt(?:\?[^\s"\'<>]*)?)',
-        r'(?P<u>/[^\s"\'<>]*elenco_siti_inibiti_giochi\.txt(?:\?[^\s"\'<>]*)?)',
-        r'(?P<u>[A-Za-z0-9_\-./]*elenco_siti_inibiti_giochi\.txt(?:\?[^\s"\'<>]*)?)',
+        r'(?P<u>https?://[^\s"\'<>]*\.txt(?:\?[^\s"\'<>]*)?)',
+        r'(?P<u>/[^\s"\'<>]*\.txt(?:\?[^\s"\'<>]*)?)',
+        r'(?P<u>[A-Za-z0-9_\-./]*\.txt(?:\?[^\s"\'<>]*)?)',
     ]
     for pat in patterns:
-        m = re.search(pat, html_text, flags=re.I)
-        if m:
-            cand = m.group("u")
-            return urljoin(listing_url, cand)
+        for m in re.finditer(pat, html_text, flags=re.I):
+            cand = urljoin(listing_url, m.group("u"))
+            lc = cand.lower()
+            if is_same_domain(cand) and "sha" not in lc and "controllo" not in lc:
+                if verbose:
+                    print(f"[INFO] Candidato TXT da regex HTML: {cand}", file=sys.stderr)
+                return cand
 
     return None
 
@@ -281,6 +331,10 @@ def main():
 
     # 1) Individua direttamente l'URL al TXT
     txt_url = find_txt_url_on_page(args.start, timeout=args.timeout, verbose=args.verbose)
+    if not txt_url:
+        txt_url = FALLBACK_TXT_URL
+        if args.verbose:
+            print(f"[WARN] Uso fallback TXT: {txt_url}", file=sys.stderr)
     if not txt_url:
         print("ERRORE: impossibile trovare 'elenco_siti_inibiti_giochi.txt' sulla pagina.", file=sys.stderr)
         sys.exit(1)
